@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: file-deletion-svc
+  namespace: file-deletion
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: file-deletion-svc
+  template:
+    metadata:
+      labels:
+        app: file-deletion-svc
+    spec:
+      containers:
+        - name: api
+          image: file-deletion-service:dev
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: app-config
+            - secretRef:
+                name: app-secrets
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 10
