@@ -4,11 +4,12 @@ __pycache__/
 *.egg-info/
 .venv/
 venv/
-.env
+.env*
 
 # OS
 .DS_Store
 Thumbs.db
 
 # Kubernetes local secrets
+k8s/secret.local.*.yaml
 k8s/secret.local.yaml
