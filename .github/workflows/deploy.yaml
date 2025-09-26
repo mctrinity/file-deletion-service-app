@@ -1,0 +1,55 @@
+name: CI/CD Pipeline
+
+on:
+    push:
+        branches: ["main"]
+
+jobs:
+    build-and-deploy:
+        runs-on: ubuntu-latest
+        env:
+            AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+            AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+            AZURE_STORAGE_CONNECTION_STRING: ${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}
+            KUBECONFIG_CONTENT: ${{ secrets.KUBECONFIG_CONTENT }}
+
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v3
+
+            - name: Set up Docker Buildx
+              uses: docker/setup-buildx-action@v2
+
+            - name: Log in to GitHub Container Registry
+              uses: docker/login-action@v2
+              with:
+                  registry: ghcr.io
+                  username: ${{ github.actor }}
+                  password: ${{ secrets.GITHUB_TOKEN }}
+
+            - name: Build and push Docker image
+              run: |
+                  IMAGE=ghcr.io/${{ github.repository_owner }}/file-deletion-service:latest
+                  docker build -t $IMAGE ./file-deletion-service-app
+                  docker push $IMAGE
+
+            - name: Set up kubectl
+              uses: azure/setup-kubectl@v3
+              with:
+                  version: "v1.31.0"
+
+            - name: Configure kubeconfig
+              run: |
+                  mkdir -p $HOME/.kube
+                  echo "${{ secrets.KUBECONFIG_CONTENT }}" > $HOME/.kube/config
+
+            - name: Deploy to Kubernetes
+              run: |
+                  kubectl apply -f ./file-deletion-service-app/k8s/ -n file-deletion
+                  kubectl rollout status deployment/file-deletion-svc -n file-deletion
+
+            - name: Debug secrets (sanitized)
+              run: |
+                  echo "AWS_ACCESS_KEY_ID is set: ${#AWS_ACCESS_KEY_ID}"
+                  echo "AZURE_STORAGE_CONNECTION_STRING length: ${#AZURE_STORAGE_CONNECTION_STRING}"
+                  echo "KUBECONFIG_CONTENT length: ${#KUBECONFIG_CONTENT}"
